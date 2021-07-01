@@ -59,12 +59,22 @@ apply_patch() {
 }
 
 # Create a file of the updated lines prepended with the line numbers
-patch_file_path=$(fetch_patch)
+main() {
+	if [[ -z "${PULL_ID}" ]]; then
+		echo "A PULL_ID is required: ${0} PULL_ID"
 
-updated_lines=$(awk -f ./patch.awk -v portal_path_addition=${PORTAL_PATH_ADDITION} ${patch_file_path})
+		exit 1
+	fi
 
-create_updated_patch  "${patch_file_path}" "${updated_lines}"
+	patch_file_path=$(fetch_patch)
 
-apply_patch "${patch_file_path}"
+	updated_lines=$(awk -f ./patch.awk -v portal_path_addition=${PORTAL_PATH_ADDITION} ${patch_file_path})
 
-echo "Patch complete!"
+	create_updated_patch	"${patch_file_path}" "${updated_lines}"
+
+	apply_patch "${patch_file_path}"
+
+	echo "Patch complete!"
+}
+
+main
