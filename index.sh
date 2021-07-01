@@ -8,6 +8,23 @@ source config
 
 PULL_ID="${1}"
 
+# Apply patch to repo at patch_destination_path
+apply_patch() {
+	# TODO: Should check for current branch before doing this.  maybe create a new branch and then reset it to upstream
+	local file_path="${1}"
+	local file_name=$(basename "${patch_file_path}" .patch)
+
+	echo "Patching git repo at ${PATCH_DESTINATION_PATH}"
+
+	cd "${PATCH_DESTINATION_PATH}"
+
+	git checkout -b  "${file_name}"
+
+	cat "${file_path}" | git am
+
+	echo "Patch Success (Maybe)"
+}
+
 # Interate through lines in updated_lines and update the respective line in file
 create_updated_patch() {
 	local file_path="${1}"
@@ -41,24 +58,6 @@ fetch_patch() {
 	echo "${PATCH_FILE_SAVE_LOCATION}/pull-${PULL_ID}.patch"
 }
 
-# Apply patch to repo at patch_destination_path
-apply_patch() {
-	# TODO: Should check for current branch before doing this.  maybe create a new branch and then reset it to upstream
-	local file_path="${1}"
-	local file_name=$(basename "${patch_file_path}" .patch)
-
-	echo "Patching git repo at ${PATCH_DESTINATION_PATH}"
-
-	cd "${PATCH_DESTINATION_PATH}"
-
-	git checkout -b  "${file_name}"
-
-	cat "${file_path}" | git am
-
-	echo "Patch Success (Maybe)"
-}
-
-# Create a file of the updated lines prepended with the line numbers
 main() {
 	if [[ -z "${PULL_ID}" ]]; then
 		echo "A PULL_ID is required: ${0} PULL_ID"
@@ -68,6 +67,7 @@ main() {
 
 	patch_file_path=$(fetch_patch)
 
+	# Create a file of the updated lines prepended with the line numbers
 	updated_lines=$(awk -f ./patch.awk -v portal_path_addition=${PORTAL_PATH_ADDITION} ${patch_file_path})
 
 	create_updated_patch	"${patch_file_path}" "${updated_lines}"
