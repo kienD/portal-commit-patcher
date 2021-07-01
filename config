@@ -1,2 +1,6 @@
-patch_destination_path="/home/kdotdo/Liferay/liferay-portal-ee"
-portal_path_addition="modules/dxp/apps/osb/osb-faro/"
+GITHUB_USER="liferay"
+GITHUB_REPO="com-liferay-osb-faro-private"
+PATCH_FILE_SAVE_LOCATION="/tmp"
+PATCH_DESTINATION_PATH="/home/kdotdo/Liferay/liferay-portal-ee"
+PORTAL_PATH_ADDITION="modules/dxp/apps/osb/osb-faro/"
+TOKEN="" # DO NOT SAVE THIS VALUE
