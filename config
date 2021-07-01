@@ -1,1 +1,2 @@
+patch_destination_path="/home/kdotdo/Liferay/liferay-portal-ee"
 portal_path_addition="modules/dxp/apps/osb/osb-faro/"
