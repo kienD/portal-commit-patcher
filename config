@@ -1,4 +1,7 @@
+BASE_BRANCH="7.1.x"
 GITHUB_USER="liferay"
+GITHUB_CI_USER="liferay-continuous-integration-ac"
+GITHUB_DESTINATION_REPO="liferay-portal-ee"
 GITHUB_REPO="com-liferay-osb-faro-private"
 PATCH_FILE_SAVE_LOCATION="/tmp"
 PATCH_DESTINATION_PATH="/home/kdotdo/Liferay/liferay-portal-ee"

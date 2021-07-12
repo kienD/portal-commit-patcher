@@ -25,6 +25,30 @@ apply_patch() {
 	echo "Patch Success (Maybe)"
 }
 
+# Push pull request to origin and send a pull request to origin against BASE_BRANCH
+send_pull_request() {
+	local file_name=$(basename "${patch_file_path}" .patch)
+
+	git push origin "${file_name}"
+
+	# Update to use liferay-ac-ci user instead of my account.  Also should use github api vs hub
+	curl -X POST -H "Authorization: token ${TOKEN}" -d  "{\"title\": \"${file_name}\", \"body\": \"ci:forward\", \"head\": \"${file_name}\", \"base\": \"7.1.x\"}" "https://api.github.com/repos/${GITHUB_CI_USER}/${GITHUB_DESTINATION_REPO}/pulls"
+}
+
+update_origin_base_branch() {
+	cd "${PATCH_DESTINATION_PATH}"
+
+	current_branch=$(git branch --show-current)
+
+	if [[ $current_branch != "${BASE_BRANCH}" ]]; then
+		git checkout "${BASE_BRANCH}"
+	fi
+
+	git pull --rebase upstream "${BASE_BRANCH}"
+
+	git push origin "${BASE_BRANCH}"
+}
+
 # Interate through lines in updated_lines and update the respective line in file
 create_updated_patch() {
 	local file_path="${1}"
@@ -72,7 +96,11 @@ main() {
 
 	create_updated_patch	"${patch_file_path}" "${updated_lines}"
 
+	update_origin_base_branch
+
 	apply_patch "${patch_file_path}"
+
+	send_pull_request
 
 	echo "Patch complete!"
 }
