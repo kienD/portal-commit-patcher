@@ -18,7 +18,7 @@ add_origin_pr_comment() {
 
 	local response=$(curl -X POST -H "Authorization: token ${TOKEN}" -d  "{\"body\": \"${pr_body}\"}" "https://api.github.com/repos/${GITHUB_ORIGIN_USER}/${GITHUB_ORIGIN_REPO}/issues/${ORIGIN_PULL_ID}/comments")
 
-	echo $(echo "${response}" | jq '.body')
+	echo "${response}"
 }
 
 # Update PR origin state
@@ -68,10 +68,10 @@ send_pull_request() {
 	local file_name=$(basename "${patch_file_path}" .patch)
 
 	# Update to use liferay-ac-ci user instead of my account.  Also should use github api vs hub
-	# local destination_pr_response=$(curl -X POST -H "Authorization: token ${TOKEN}" -d  "{\"title\": \"${file_name}\", \"body\": \"ci:forward\", \"head\": \"${file_name}\", \"base\": \"7.1.x\"}" "https://api.github.com/repos/${GITHUB_DESTINATION_USER}/${GITHUB_DESTINATION_REPO}/pulls")
+	local destination_pr_response=$(curl -X POST -H "Authorization: token ${TOKEN}" -d  "{\"title\": \"${file_name}\", \"body\": \"ci:forward\", \"head\": \"${file_name}\", \"base\": \"7.1.x\"}" "https://api.github.com/repos/${GITHUB_DESTINATION_USER}/${GITHUB_DESTINATION_REPO}/pulls")
 
 	# For testing purposes
-	local destination_pr_response=$(curl -X GET -H "Authorization: token ${TOKEN}" "https://api.github.com/repos/${GITHUB_DESTINATION_USER}/${GITHUB_DESTINATION_REPO}/pulls/23")
+	# local destination_pr_response=$(curl -X GET -H "Authorization: token ${TOKEN}" "https://api.github.com/repos/${GITHUB_DESTINATION_USER}/${GITHUB_DESTINATION_REPO}/pulls/23")
 
 	local destination_changes=$(echo "${destination_pr_response}" | jq --raw-output '{additions: .additions, changed_files: .changed_files, deletions: .deletions} | to_entries | map("[\(.key)]=\(.value)") | reduce .[] as $item ("destination_changes_dict=("; . + ($item) + " ") + ")"')
 
@@ -174,26 +174,26 @@ main() {
 	local file_name=$(basename "${patch_file_path}" .patch)
 
 	git push origin "${file_name}"
+	echo "Pushed pull-${file_name} to destination repo"
 
 	local pr_response=$(send_pull_request)
+	echo "PR sent"
 
 	local pr_number=$(echo "${pr_response}" | jq '.number')
-	local pr_url=$(echo "${pr_response}" | jq '.html_url')
 
-	local origin_comment_body=$(add_origin_pr_comment "PR forwarded to [here](${pr_url})")
+	local origin_comment_body=$(add_origin_pr_comment "PR forwarded to [here](https://github.com/${GITHUB_DESTINATION_USR}/${GITHUB_DESTINATION_REPO}/pull/${pr_number})")
 
-	if [[ -n  "${origin_comment_body}" ]]; then
-		update_origin_pr_state "closed"
-	else
-		echo "Failed to add origin pr comment"
-	fi
+	update_origin_pr_state "closed"
+	echo "Closed origin PR"
 
-	echo "${pr_number}"
 	add_destination_pr_comment "${pr_number}"
 
-	delete_local_branch
+	echo "Added comment to destination PR"
 
-	echo "Patch complete!"
+	delete_local_branch
+	echo "Deleted local branch"
+
+	echo "Process complete!"
 }
 
 main
