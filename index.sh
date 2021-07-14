@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 source config
 
 # TODO Update this to always read files from this DIR for accessing patch.awk
@@ -23,6 +25,13 @@ apply_patch() {
 	cat "${file_path}" | git am
 
 	echo "Patch Success (Maybe)"
+}
+
+# Delete local branch
+delete_local_branch() {
+	local file_name=$(basename "${patch_file_path}" .patch)
+
+	git branch -D "${file_name}"
 }
 
 # Push pull request to origin and send a pull request to origin against BASE_BRANCH
@@ -101,6 +110,8 @@ main() {
 	apply_patch "${patch_file_path}"
 
 	send_pull_request
+
+	delete_local_branch
 
 	echo "Patch complete!"
 }
