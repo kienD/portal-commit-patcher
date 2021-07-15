@@ -181,7 +181,7 @@ main() {
 
 	local pr_number=$(echo "${pr_response}" | jq '.number')
 
-	local origin_comment_body=$(add_origin_pr_comment "PR forwarded to [here](https://github.com/${GITHUB_DESTINATION_USR}/${GITHUB_DESTINATION_REPO}/pull/${pr_number})")
+	local origin_comment_body=$(add_origin_pr_comment "PR forwarded to [here](https://github.com/${GITHUB_DESTINATION_USER}/${GITHUB_DESTINATION_REPO}/pull/${pr_number})")
 
 	update_origin_pr_state "closed"
 	echo "Closed origin PR"
