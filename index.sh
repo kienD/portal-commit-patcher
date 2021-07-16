@@ -107,7 +107,7 @@ send_pull_request() {
 }
 
 update_origin_base_branch() {
-	current_branch=$(git branch --show-current)
+	current_branch=$(git rev-parse --abbrev-ref HEAD)
 
 	if [[ $current_branch != "${BASE_BRANCH}" ]]; then
 		git checkout "${BASE_BRANCH}"
