@@ -186,9 +186,9 @@ main() {
 	update_origin_pr_state "closed"
 	echo "Closed origin PR"
 
-	# add_destination_pr_comment "${pr_number}"
+	add_destination_pr_comment "${pr_number}"
 
-	# echo "Added comment to destination PR"
+	echo "Added comment to destination PR"
 
 	delete_local_branch
 	echo "Deleted local branch"
