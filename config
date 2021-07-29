@@ -1,9 +1,0 @@
-BASE_BRANCH="7.1.x"
-DESTINATION_PATH_ADDITION="modules/dxp/apps/osb/osb-faro/"
-GITHUB_DESTINATION_USER="kiend"
-GITHUB_DESTINATION_REPO="liferay-portal-ee"
-GITHUB_ORIGIN_USER="liferay"
-GITHUB_ORIGIN_REPO="com-liferay-osb-faro-private"
-PATCH_DESTINATION_PATH="/home/kdotdo/Liferay/liferay-portal-ee"
-PATCH_FILE_SAVE_LOCATION="/tmp"
-TOKEN="" # DO NOT SAVE THIS VALUE
