@@ -199,8 +199,9 @@ main() {
   local comment="PR forwarded to [here](https://github.com/${GITHUB_DESTINATION_USER}/${GITHUB_DESTINATION_REPO}/pull/${pr_number})"
   add_origin_pr_comment "$comment" >/dev/null
 
-  update_origin_pr_state "closed"
-  echo "Closed origin PR"
+	# Do not close original PR for now. Look into closing original PR once BChan approves... somehow..
+  # update_origin_pr_state "closed"
+  # echo "Closed origin PR"
 
   delete_local_branch
   echo "Deleted local branch"
