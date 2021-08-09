@@ -31,8 +31,7 @@ update_origin_pr_state() {
 # Close original PR with comment linking to new PR
 add_destination_pr_comment() {
   local pr_number="${1}"
-
-  local pr_body="ci:forward"
+	local pr_body="${2}"
 
   curl -X POST -H "$GITHUB_HEADER" -d "{\"body\": \"${pr_body}\"}" "https://api.github.com/repos/${GITHUB_DESTINATION_USER}/${GITHUB_DESTINATION_REPO}/issues/${pr_number}/comments"
 }
@@ -202,10 +201,6 @@ main() {
 
   update_origin_pr_state "closed"
   echo "Closed origin PR"
-
-  add_destination_pr_comment "$pr_number"
-
-  echo "Added comment to destination PR"
 
   delete_local_branch
   echo "Deleted local branch"
