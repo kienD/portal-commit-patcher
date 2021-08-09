@@ -52,6 +52,7 @@ apply_patch() {
 
 	git am < "${file_path}"
 
+	add_origin_pr_comment "Patch applied to branch (maybe)" >/dev/null
   echo "Patch Success (Maybe)"
 }
 
@@ -119,6 +120,8 @@ update_origin_base_branch() {
   git pull --rebase upstream "${BASE_BRANCH}"
 
   git push origin "${BASE_BRANCH}"
+
+  add_origin_pr_comment "Rebase complete" >/dev/null
 }
 
 # Interate through lines in updated_lines and update the respective line in file
@@ -144,6 +147,8 @@ create_updated_patch() {
       echo "Updating line ${lineNumber}: Success"
     fi
   done <<<"$updated_lines"
+
+  add_origin_pr_comment "Patch file updated" >/dev/null
 
   echo "Patch file updated"
 }
@@ -181,6 +186,8 @@ main() {
 	file_name=$(basename "${patch_file_path}" .patch)
 
   git push origin "${file_name}"
+
+  add_origin_pr_comment "Pushed pull-${file_name} to destination repo" >/dev/null
   echo "Pushed pull-${file_name} to destination repo"
 
   local pr_response
