@@ -161,6 +161,8 @@ main() {
     exit 1
   fi
 
+  add_origin_pr_comment "Starting patch process" >/dev/null
+
   patch_file_path=$(fetch_patch)
 
   # Create a file of the updated lines prepended with the line numbers
