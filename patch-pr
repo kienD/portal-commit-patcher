@@ -197,6 +197,9 @@ main() {
   local pr_number
 	pr_number=$(echo "${pr_response}" | jq '.number')
 
+	add_destination_pr_comment  "$pr_number" "ci:forward"
+
+
   local comment="PR forwarded to [here](https://github.com/${GITHUB_DESTINATION_USER}/${GITHUB_DESTINATION_REPO}/pull/${pr_number})"
   add_origin_pr_comment "$comment" >/dev/null
 
