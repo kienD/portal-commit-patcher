@@ -22,10 +22,10 @@ add_origin_pr_comment() {
 }
 
 # Update PR origin state
-update_origin_pr_state() {
-  local state="${1}"
+update_origin_pr() {
+  local data="${1}"
 
-  curl -X PATCH -H "$GITHUB_HEADER" -d "{\"state\": \"${state}\"}" "https://api.github.com/repos/${GITHUB_ORIGIN_USER}/${GITHUB_ORIGIN_REPO}/issues/${ORIGIN_PULL_ID}"
+  curl -X PATCH -H "$GITHUB_HEADER" -d "$data" "https://api.github.com/repos/${GITHUB_ORIGIN_USER}/${GITHUB_ORIGIN_REPO}/issues/${ORIGIN_PULL_ID}"
 }
 
 # Close original PR with comment linking to new PR
@@ -166,6 +166,7 @@ main() {
   fi
 
   add_origin_pr_comment "Starting patch process" >/dev/null
+	update_origin_pr "{\"labels\": [\"Patching\"]}"
 
   patch_file_path=$(fetch_patch)
 
@@ -186,8 +187,8 @@ main() {
 
   git push origin "${file_name}"
 
-  add_origin_pr_comment "Pushed pull-${file_name} to destination repo" >/dev/null
-  echo "Pushed pull-${file_name} to destination repo"
+  add_origin_pr_comment "Pushed ${file_name} to destination repo" >/dev/null
+  echo "Pushed ${file_name} to destination repo"
 
   local pr_response
 	pr_response=$(send_pull_request)
@@ -199,8 +200,10 @@ main() {
   local comment="PR forwarded to [here](https://github.com/${GITHUB_DESTINATION_USER}/${GITHUB_DESTINATION_REPO}/pull/${pr_number})"
   add_origin_pr_comment "$comment" >/dev/null
 
+	update_origin_pr "{\"labels\": [\"Patched\"]}"
+
 	# Do not close original PR for now. Look into closing original PR once BChan approves... somehow..
-  # update_origin_pr_state "closed"
+  # update_origin_pr "{\"state\": \"closed\"}"
   # echo "Closed origin PR"
 
   delete_local_branch
