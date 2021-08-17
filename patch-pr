@@ -70,7 +70,7 @@ send_pull_request() {
   local file_name
 	file_name=$(basename "${patch_file_path}" .patch)
 
-  local data="{\"title\": \"${file_name}\", \"body\": \"ci:forward\", \"head\": \"${file_name}\", \"base\": \"7.1.x\"}"
+  local data="{\"title\": \"${file_name}\", \"head\": \"${file_name}\", \"base\": \"7.1.x\"}"
   local endpoint="https://api.github.com/repos/${GITHUB_DESTINATION_USER}/${GITHUB_DESTINATION_REPO}/pulls"
 
   local destination_pr_response
