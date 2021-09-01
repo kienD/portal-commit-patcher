@@ -116,7 +116,7 @@ update_origin_base_branch() {
     git checkout "${BASE_BRANCH}"
   fi
 
-  git pull --rebase upstream "${BASE_BRANCH}"
+  git pull --no-tags --rebase upstream "${BASE_BRANCH}"
 
   git push origin "${BASE_BRANCH}"
 
