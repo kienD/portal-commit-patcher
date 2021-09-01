@@ -51,7 +51,7 @@ apply_patch() {
 
 	git am < "${file_path}"
 
-	add_origin_pr_comment "Patch applied to branch (maybe)" >/dev/null
+	add_origin_pr_comment "Patch applied to branch (4/6)" >/dev/null
   echo "Patch Success (Maybe)"
 }
 
@@ -120,7 +120,7 @@ update_origin_base_branch() {
 
   git push origin "${BASE_BRANCH}"
 
-  add_origin_pr_comment "Rebase complete" >/dev/null
+	add_origin_pr_comment "Rebase complete (2/6)" >/dev/null
 }
 
 # Interate through lines in updated_lines and update the respective line in file
@@ -147,7 +147,7 @@ create_updated_patch() {
     fi
   done <<<"$updated_lines"
 
-  add_origin_pr_comment "Patch file updated" >/dev/null
+	add_origin_pr_comment "Patch file updated (3/6)" >/dev/null
 
   echo "Patch file updated"
 }
@@ -165,8 +165,12 @@ main() {
     exit 1
   fi
 
-  add_origin_pr_comment "Starting patch process" >/dev/null
+	add_origin_pr_comment "Starting patch process (1/6)" >/dev/null
 	update_origin_pr "{\"labels\": [\"Patching\"]}"
+
+  cd "${PATCH_DESTINATION_PATH}"
+
+  update_origin_base_branch
 
   patch_file_path=$(fetch_patch)
 
@@ -176,10 +180,6 @@ main() {
 
   create_updated_patch "${patch_file_path}" "${updated_lines}"
 
-  cd "${PATCH_DESTINATION_PATH}"
-
-  update_origin_base_branch
-
   apply_patch "${patch_file_path}"
 
   local file_name
@@ -187,7 +187,7 @@ main() {
 
   git push origin "${file_name}"
 
-  add_origin_pr_comment "Pushed ${file_name} to destination repo" >/dev/null
+	add_origin_pr_comment "Pushed ${file_name} to destination repo (5/6)" >/dev/null
   echo "Pushed ${file_name} to destination repo"
 
   local pr_response
@@ -200,7 +200,7 @@ main() {
 	add_destination_pr_comment  "$pr_number" "ci:forward"
 
 
-  local comment="PR forwarded to [here](https://github.com/${GITHUB_DESTINATION_USER}/${GITHUB_DESTINATION_REPO}/pull/${pr_number})"
+	local comment="PR forwarded to [here](https://github.com/${GITHUB_DESTINATION_USER}/${GITHUB_DESTINATION_REPO}/pull/${pr_number}) (6/6)"
   add_origin_pr_comment "$comment" >/dev/null
 
 	update_origin_pr "{\"labels\": [\"Patched\"]}"
