@@ -59,6 +59,7 @@ handle_status_code() {
 
 	if [[ $status_code -ne 0 ]]; then
 		add_origin_pr_comment "$error_message"
+		update_origin_pr "{\"labels\": [\"Patch\ Failed\"]}"
 
 		echo $status_code
 		echo "$error_message"
