@@ -1,5 +1,7 @@
 #!/bin/bash
 set -e
+# set -x
+# this logs out everything
 
 SCRIPT_DIR=$(dirname "${BASH_SOURCE[0]}")
 source "${SCRIPT_DIR}/config"
@@ -11,208 +13,268 @@ source "${SCRIPT_DIR}/config"
 ORIGIN_PULL_ID="${1}"
 GITHUB_HEADER="Authorization: token ${TOKEN}"
 
+
+awk_error=255
+git_checkout_error=254
+git_pull_error=253
+git_push_error=252
+create_patch_file_error=251
+git_amend_error=250
+fetch_patch_error=249
+git_branch_d_error=248
+
+# Check to see if current status code is not 0 and exit program
+handle_status_code() {
+	local status_code=$1
+
+	local error_message=""
+
+	case $status_code in
+		$awk_error)
+			error_message="Error: awk command failed"
+			;;
+		$git_checkout_error)
+			error_message="Error: git checkout failed"
+			;;
+		$git_pull_error)
+			error_message="Error: git pull rebase failed"
+			;;
+		$git_push_error)
+			error_message="Error: git push failed"
+			;;
+		$create_patch_file_error)
+			error_message="Error: Patch failed"
+			;;
+		$git_amend_error)
+			error_message="Error: git amend failed"
+			;;
+		$fetch_patch_error)
+			error_message="Error: Fetch patch from github failed"
+			;;
+		$git_branch_d_error)
+			error_message="Error: Could not delete local branch of pull-${ORIGIN_PULL_ID}"
+			;;
+	esac
+
+
+	if [[ $status_code -ne 0 ]]; then
+		add_origin_pr_comment "$error_message"
+
+		echo $status_code
+		echo "$error_message"
+
+		exit 1
+	fi
+}
+
+
 # Add ci:foward & link comment to origin PR
 add_origin_pr_comment() {
-  local pr_body="${1}"
+	local pr_body="${1}"
 
-  local response
+	local response
 	response=$(curl -X POST -H "$GITHUB_HEADER" -d "{\"body\": \"${pr_body}\"}" "https://api.github.com/repos/${GITHUB_ORIGIN_USER}/${GITHUB_ORIGIN_REPO}/issues/${ORIGIN_PULL_ID}/comments")
 
-  echo "${response}"
+	echo "${response}"
 }
 
 # Update PR origin state
 update_origin_pr() {
-  local data="${1}"
+	local data="${1}"
 
-  curl -X PATCH -H "$GITHUB_HEADER" -d "$data" "https://api.github.com/repos/${GITHUB_ORIGIN_USER}/${GITHUB_ORIGIN_REPO}/issues/${ORIGIN_PULL_ID}"
+	curl -X PATCH -H "$GITHUB_HEADER" -d "$data" "https://api.github.com/repos/${GITHUB_ORIGIN_USER}/${GITHUB_ORIGIN_REPO}/issues/${ORIGIN_PULL_ID}"
 }
 
 # Close original PR with comment linking to new PR
 add_destination_pr_comment() {
-  local pr_number="${1}"
+	local pr_number="${1}"
 	local pr_body="${2}"
 
-  curl -X POST -H "$GITHUB_HEADER" -d "{\"body\": \"${pr_body}\"}" "https://api.github.com/repos/${GITHUB_DESTINATION_USER}/${GITHUB_DESTINATION_REPO}/issues/${pr_number}/comments"
+	curl -X POST -H "$GITHUB_HEADER" -d "{\"body\": \"${pr_body}\"}" "https://api.github.com/repos/${GITHUB_DESTINATION_USER}/${GITHUB_DESTINATION_REPO}/issues/${pr_number}/comments"
 }
 
 # Apply patch to repo at patch_destination_path
 apply_patch() {
-  # TODO: Should check for current branch before doing this.  maybe create a new branch and then reset it to upstream
-  local file_path="${1}"
-  local file_name
+	# TODO: Should check for current branch before doing this.  maybe create a new branch and then reset it to upstream
+	local file_path="${1}"
+	local file_name
 	file_name=$(basename "${patch_file_path}" .patch)
 
-  echo "Patching git repo at ${PATCH_DESTINATION_PATH}"
+	echo "Patching git repo at ${PATCH_DESTINATION_PATH}"
 
-  cd "${PATCH_DESTINATION_PATH}"
+	cd "${PATCH_DESTINATION_PATH}"
 
-  git checkout -b "${file_name}"
+	git checkout -b "${file_name}" || return $git_checkout_error
 
-	git am < "${file_path}"
+	git am < "${file_path}" || return $git_amend_error
 
 	add_origin_pr_comment "Patch applied to branch (4/6)" >/dev/null
-  echo "Patch Success (Maybe)"
+
+	echo "Patch Success (Maybe)"
 }
 
 # Delete local branch
 delete_local_branch() {
-  local file_name
+	local file_name
 	file_name=$(basename "${patch_file_path}" .patch)
 
-  git checkout "7.1.x"
+	git checkout "7.1.x" || return $git_checkout_error
 
-  git branch -D "${file_name}"
+	git branch -D "${file_name}" || return $git_branch_d_error
 }
 
 # Push pull request to origin and send a pull request to origin against BASE_BRANCH
 send_pull_request() {
-  local file_name
+	local file_name
 	file_name=$(basename "${patch_file_path}" .patch)
 
-  local data="{\"title\": \"${file_name}\", \"head\": \"${file_name}\", \"base\": \"7.1.x\"}"
-  local endpoint="https://api.github.com/repos/${GITHUB_DESTINATION_USER}/${GITHUB_DESTINATION_REPO}/pulls"
+	local data="{\"title\": \"${file_name}\", \"head\": \"${file_name}\", \"base\": \"7.1.x\"}"
+	local endpoint="https://api.github.com/repos/${GITHUB_DESTINATION_USER}/${GITHUB_DESTINATION_REPO}/pulls"
 
-  local destination_pr_response
+	local destination_pr_response
 	destination_pr_response=$(curl -X POST -H "$GITHUB_HEADER" -d "$data" "$endpoint")
 
-  local destination_changes
+	local destination_changes
 	destination_changes=$(echo "${destination_pr_response}" | jq --raw-output '{additions: .additions, changed_files: .changed_files, deletions: .deletions} | to_entries | map("[\(.key)]=\(.value)") | reduce .[] as $item ("destination_changes_dict=("; . + ($item) + " ") + ")"')
 
-  # Creates destination_changes_dict
-  local -A "${destination_changes}"
+	# Creates destination_changes_dict
+	local -A "${destination_changes}"
 
-  local origin_pr_response
+	local origin_pr_response
 	origin_pr_response=$(curl -X GET -H "$GITHUB_HEADER" "https://api.github.com/repos/${GITHUB_ORIGIN_USER}/${GITHUB_ORIGIN_REPO}/pulls/${ORIGIN_PULL_ID}")
 
-  local origin_changes
+	local origin_changes
 	origin_changes=$(echo "${origin_pr_response}" | jq --raw-output '{additions: .additions, changed_files: .changed_files, deletions: .deletions} | to_entries | map("[\(.key)]=\(.value)") | reduce .[] as $item ("origin_changes_dict=("; . + ($item) + " ") + ")"')
 
-  # Creates origin_changes_dict
-  local -A "${origin_changes}"
+	# Creates origin_changes_dict
+	local -A "${origin_changes}"
 
-  local change_errors
+	local change_errors
 
-  for key in "${!destination_changes_dict[@]}"; do
-    if [[ "${destination_changes_dict[${key}]}" != "${origin_changes_dict[${key}]}" ]]; then
-      change_errors="${change_errors}**${key}** count does not match\n"
-    fi
-  done
+	for key in "${!destination_changes_dict[@]}"; do
+		if [[ "${destination_changes_dict[${key}]}" != "${origin_changes_dict[${key}]}" ]]; then
+			change_errors="${change_errors}**${key}** count does not match\n"
+		fi
+	done
 
-  if [[ -n "${change_errors}" ]]; then
-    # Send change errors as comment to original PR
-    add_origin_pr_comment "### Patching Failed:\n${change_errors}" >/dev/null
+	if [[ -n "${change_errors}" ]]; then
+		# Send change errors as comment to original PR
+		add_origin_pr_comment "### Patching Failed:\n${change_errors}" >/dev/null
 
-    exit 1
-  fi
+		exit 1
+	fi
 
-  echo "${destination_pr_response}"
+	echo "${destination_pr_response}"
 }
 
 update_origin_base_branch() {
-  current_branch=$(git rev-parse --abbrev-ref HEAD)
+	current_branch=$(git rev-parse --abbrev-ref HEAD)
 
-  if [[ $current_branch != "${BASE_BRANCH}" ]]; then
-    git checkout "${BASE_BRANCH}"
-  fi
+	if [[ $current_branch != "${BASE_BRANCH}" ]]; then
+		git checkout "${BASE_BRANCH}" || return $git_checkout_error
+	fi
 
-  git pull --no-tags --rebase upstream "${BASE_BRANCH}"
+	git pull --no-tags --rebase upstream "${BASE_BRANCH}" || return $git_pull_error
 
-  git push origin "${BASE_BRANCH}"
+	git push origin "${BASE_BRANCH}" || return $git_push_error
 
 	add_origin_pr_comment "Rebase complete (2/6)" >/dev/null
 }
 
 # Interate through lines in updated_lines and update the respective line in file
 create_updated_patch() {
-  local file_path="${1}"
-  local updated_lines="${2}"
+	local file_path="${1}"
+	local updated_lines="${2}"
 
-  while read -r line; do
-    IFS=':'
+	local status_code
 
-    read -r -a lineArray <<<"${line}"
+	while read -r line; do
+		IFS=':'
 
-    lineNumber=${lineArray[0]}
-    lineContent=${lineArray[1]}
+		read -r -a lineArray <<<"${line}"
 
-    current_line_string=$(sed "${lineNumber}q;d" "${file_path}")
+		lineNumber=${lineArray[0]}
+		lineContent=${lineArray[1]}
 
-    if [[ "${current_line_string}" == *"${DESTINATION_PATH_ADDITION}"* ]]; then
-      echo "Skipping line ${lineNumber}: Already converted"
-    else
-      sed -i "${lineNumber}s~^.*$~${lineContent}~" "${file_path}"
+		current_line_string=$(sed "${lineNumber}q;d" "${file_path}")
 
-      echo "Updating line ${lineNumber}: Success"
-    fi
-  done <<<"$updated_lines"
+		if [[ "${current_line_string}" == *"${DESTINATION_PATH_ADDITION}"* ]]; then
+			echo "Skipping line ${lineNumber}: Already converted"
+		else
+			sed -i "${lineNumber}s~^.*$~${lineContent}~" "${file_path}" || return $create_patch_file_error
+
+			echo "Updating line ${lineNumber}: Success"
+		fi
+	done <<<"$updated_lines"
 
 	add_origin_pr_comment "Patch file updated (3/6)" >/dev/null
 
-  echo "Patch file updated"
+	echo "Patch file updated"
 }
 
 fetch_patch() {
-  curl -H "Authorization: token ${TOKEN}" -H "Accept: application/vnd.github.v3.patch" "https://api.github.com/repos/${GITHUB_ORIGIN_USER}/${GITHUB_ORIGIN_REPO}/pulls/${ORIGIN_PULL_ID}" >"${PATCH_FILE_SAVE_LOCATION}/pull-${ORIGIN_PULL_ID}.patch"
+	curl -H "Authorization: token ${TOKEN}" -H "Accept: application/vnd.github.v3.patch" "https://api.github.com/repos/${GITHUB_ORIGIN_USER}/${GITHUB_ORIGIN_REPO}/pulls/${ORIGIN_PULL_ID}" >"${PATCH_FILE_SAVE_LOCATION}/pull-${ORIGIN_PULL_ID}.patch" || return $fetch_patch_error
 
-  echo "${PATCH_FILE_SAVE_LOCATION}/pull-${ORIGIN_PULL_ID}.patch"
+	echo "${PATCH_FILE_SAVE_LOCATION}/pull-${ORIGIN_PULL_ID}.patch"
 }
 
 main() {
-  if [[ -z "${ORIGIN_PULL_ID}" ]]; then
-    echo "A ORIGIN_PULL_ID is required: ${0} ORIGIN_PULL_ID"
+	if [[ -z "${ORIGIN_PULL_ID}" ]]; then
+		echo "A ORIGIN_PULL_ID is required: ${0} ORIGIN_PULL_ID"
 
-    exit 1
-  fi
+		exit 1
+	fi
 
 	add_origin_pr_comment "Starting patch process (1/6)" >/dev/null
+
 	update_origin_pr "{\"labels\": [\"Patching\"]}"
 
-  cd "${PATCH_DESTINATION_PATH}"
+	cd "${PATCH_DESTINATION_PATH}"
 
-  update_origin_base_branch
+	update_origin_base_branch || handle_status_code $?
 
-  patch_file_path=$(fetch_patch)
+	patch_file_path=$(fetch_patch) || handle_status_code $?
 
-  # Create a file of the updated lines prepended with the line numbers
-  local updated_lines
-	updated_lines=$(awk -f "${SCRIPT_DIR}/patch.awk" -v portal_path_addition="${DESTINATION_PATH_ADDITION}" "${patch_file_path}")
+	# Create a file of the updated lines prepended with the line numbers
+	local updated_lines
+	updated_lines=$(awk -f "${SCRIPT_DIR}/patch.awk" -v portal_path_addition="${DESTINATION_PATH_ADDITION}" "${patch_file_path}") || handle_status_code $awk_error
 
-  create_updated_patch "${patch_file_path}" "${updated_lines}"
+	create_updated_patch "${patch_file_path}" "${updated_lines}" || handle_status_code $?
 
-  apply_patch "${patch_file_path}"
+	apply_patch "${patch_file_path}" || handle_status_code $?
 
-  local file_name
+	local file_name
 	file_name=$(basename "${patch_file_path}" .patch)
 
-  git push origin "${file_name}"
+	git push origin "${file_name}" || handle_status_code $git_push_error
 
 	add_origin_pr_comment "Pushed ${file_name} to destination repo (5/6)" >/dev/null
-  echo "Pushed ${file_name} to destination repo"
+	echo "Pushed ${file_name} to destination repo"
 
-  local pr_response
+	local pr_response
 	pr_response=$(send_pull_request)
-  echo "PR sent"
 
-  local pr_number
+	echo "PR sent"
+
+	local pr_number
 	pr_number=$(echo "${pr_response}" | jq '.number')
 
 	add_destination_pr_comment  "$pr_number" "ci:forward"
 
 
 	local comment="PR forwarded to [here](https://github.com/${GITHUB_DESTINATION_USER}/${GITHUB_DESTINATION_REPO}/pull/${pr_number}) (6/6)"
-  add_origin_pr_comment "$comment" >/dev/null
+	add_origin_pr_comment "$comment" >/dev/null
 
 	update_origin_pr "{\"labels\": [\"Patched\"]}"
 
 	# Do not close original PR for now. Look into closing original PR once BChan approves... somehow..
-  # update_origin_pr "{\"state\": \"closed\"}"
-  # echo "Closed origin PR"
+	# update_origin_pr "{\"state\": \"closed\"}"
+	# echo "Closed origin PR"
 
-  delete_local_branch
-  echo "Deleted local branch"
+	delete_local_branch || handle_status_code $?
+	echo "Deleted local branch"
 
-  echo "Process complete!"
+	echo "Process complete!"
 }
 
 main
