@@ -83,6 +83,7 @@ add_origin_pr_comment() {
 update_origin_pr() {
 	local data="${1}"
 
+	echo "${data}"
 	curl -X PATCH -H "$GITHUB_HEADER" -d "$data" "https://api.github.com/repos/${GITHUB_ORIGIN_USER}/${GITHUB_ORIGIN_REPO}/issues/${ORIGIN_PULL_ID}"
 }
 
@@ -122,6 +123,16 @@ delete_local_branch() {
 	git checkout "7.1.x" || return $git_checkout_error
 
 	git branch -D "${file_name}" || return $git_branch_d_error
+}
+
+fetch_origin_pr_labels() {
+	local new_label="${1}"
+
+	origin_pr_response=$(curl -X GET -H "$GITHUB_HEADER" "https://api.github.com/repos/${GITHUB_ORIGIN_USER}/${GITHUB_ORIGIN_REPO}/pulls/${ORIGIN_PULL_ID}")
+
+	origin_labels=$(echo "${origin_pr_response}" | jq --arg new_label "$new_label" --raw-output '.labels | to_entries | map("\(.value.name)") | [.[] | select((. != "Patching") and (. != "Patched"))] | . += [$new_label] | {"labels": .}  | tojson')
+
+	echo "${origin_labels}"
 }
 
 # Push pull request to origin and send a pull request to origin against BASE_BRANCH
@@ -228,7 +239,9 @@ main() {
 
 	add_origin_pr_comment "Starting patch process (1/6)" >/dev/null
 
-	update_origin_pr "{\"labels\": [\"Patching\"]}"
+	local patching_labels_data=$(fetch_origin_pr_labels "Patching")
+
+	update_origin_pr "${patching_labels_data}"
 
 	cd "${PATCH_DESTINATION_PATH}"
 
@@ -266,7 +279,9 @@ main() {
 	local comment="PR forwarded to [here](https://github.com/${GITHUB_DESTINATION_USER}/${GITHUB_DESTINATION_REPO}/pull/${pr_number}) (6/6)"
 	add_origin_pr_comment "$comment" >/dev/null
 
-	update_origin_pr "{\"labels\": [\"Patched\"]}"
+	local patched_labels_data=$(fetch_origin_pr_labels "Patched")
+
+	update_origin_pr "${patched_labels_data}"
 
 	# Do not close original PR for now. Look into closing original PR once BChan approves... somehow..
 	# update_origin_pr "{\"state\": \"closed\"}"
